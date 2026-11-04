@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Melate Táctico</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Melate Táctico</h1>
+      <p class="subtitulo">Asistente de selección con criterios estadísticos · 6/56 · Lotería Nacional (México)</p>
+    </header>
+
+    <div class="hero">
+      <b>Honestidad primero:</b> ninguna regla, número o algoritmo cambia tu probabilidad de acertar
+      (el 1er premio siempre es 1 en 32,468,436). Aquí elegimos boletos <b>impopulares</b> y con
+      <b>valor esperado</b> — para que, si la suerte llega, te toque una parte mayor y repartas con menos gente.
+    </div>
+
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <nav class="tabs" role="tablist" aria-label="Secciones">
+      <button type="button" class="tab activo" data-tab="generar" role="tab" aria-selected="true">🎲 Generar</button>
+      <button type="button" class="tab" data-tab="documentacion" role="tab" aria-selected="false">📘 Documentación</button>
+      <button type="button" class="tab" data-tab="botes" role="tab" aria-selected="false">💰 Botes</button>
+    </nav>
+
+    <section id="generar" class="panel" role="tabpanel">
+      <h2>Genera tus boletos</h2>
+      <form id="form-generar">
+        <label for="n">¿Cuántos boletos? (1 a 50)</label>
+        <input type="number" id="n" min="1" max="50" step="1" value="5" required>
+
+        <fieldset>
+          <legend>Reglas anti-populares</legend>
+
+          <label for="min_altos">Números altos (≥32) mínimos</label>
+          <input type="number" id="min_altos" min="0" max="6" step="1" value="3">
+
+          <label class="check" for="no_consecutivos">
+            <input type="checkbox" id="no_consecutivos" checked>
+            Prohibir números consecutivos (p. ej. 7-8)
+          </label>
+
+          <label class="check" for="no_digitos_repetidos">
+            <input type="checkbox" id="no_digitos_repetidos" checked>
+            Prohibir el mismo último dígito en dos bolas (p. ej. 14 y 24)
+          </label>
+
+          <label class="check" for="min_decanas">
+            <input type="checkbox" id="min_decanas" checked>
+            Exigir al menos 4 décadas distintas (1-10 … 51-56)
+          </label>
+
+          <label class="check" for="no_secuencias_aritmeticas">
+            <input type="checkbox" id="no_secuencias_aritmeticas" checked>
+            Evitar secuencias aritméticas (p. ej. 5-15-25 …)
+          </label>
+
+          <label class="check" for="columnas">
+            <input type="checkbox" id="columnas" checked>
+            Repartir entre las 3 columnas del volante (1-19, 20-39, 40-56)
+          </label>
+        </fieldset>
+
+        <label for="seed">Semilla (opcional, para repetir el mismo resultado)</label>
+        <input type="number" id="seed" step="1" placeholder="Ej. 42">
+
+        <button type="submit" class="primario">Generar boletos</button>
+      </form>
+
+      <div id="resultado-tickets" class="resultado" hidden></div>
+    </section>
+
+    <section id="documentacion" class="panel doc" role="tabpanel" hidden>
+      <h2>Cómo se eligen estos boletos (sin magia)</h2>
+
+      <h3>El sorteo</h3>
+      <p>Se extraen <b>7 esferas</b> del 1 al 56: las primeras 6 son los <b>números naturales</b> y la
+      séptima el <b>adicional</b>. Tú eliges <b>6 números</b>. Ganas desde acertar 2 números naturales.</p>
+
+      <table class="tabla">
+        <thead>
+          <tr><th>Categoría</th><th>Aciertos</th><th>Premio</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1º</td><td>6 naturales</td><td>Variable (bolsa)</td></tr>
+          <tr><td>2º</td><td>5 + adicional</td><td>Variable</td></tr>
+          <tr><td>3º</td><td>5</td><td>Variable</td></tr>
+          <tr><td>4º</td><td>4 + adicional</td><td>Variable</td></tr>
+          <tr><td>5º</td><td>4</td><td>Variable</td></tr>
+          <tr><td>6º</td><td>3 + adicional</td><td>$161.29</td></tr>
+          <tr><td>7º</td><td>3</td><td>$43.01</td></tr>
+          <tr><td>8º</td><td>2 + adicional</td><td>$32.25</td></tr>
+          <tr><td>9º</td><td>2</td><td>$26.88</td></tr>
+        </tbody>
+      </table>
+
+      <p>Costo: <b>$15</b> por combinación. Sorteos <b>miércoles, viernes y domingo</b> 21:00.
+      Bolsa mínima garantizada <b>$30 M</b>.</p>
+
+      <h3>Las reglas anti-populares</h3>
+      <p>La gente juega fechas, secuencias y patrones "bonitos". Si esos números ganan, el premio se
+      reparte entre miles. Un boleto impopular tiene exactamente la misma probabilidad, pero si gana
+      se reparte entre menos personas.</p>
+      <ul>
+        <li><b>Números altos (≥32) mínimos:</b> obliga a incluir al menos K números de 32 a 56, fuera del
+        rango típico de fechas de cumpleaños.</li>
+        <li><b>No consecutivos:</b> evita pares como 7-8, muy jugados.</li>
+        <li><b>Último dígito distinto:</b> evita dos bolas con el mismo último dígito, como 14 y 24.</li>
+        <li><b>Décadas distintas:</b> exige que el boleto cubra al menos 4 grupos de decenas
+        (1-10, 11-20, 21-30, 31-40, 41-50, 51-56).</li>
+        <li><b>Sin secuencia aritmética:</b> descarta progresiones como 5-15-25 o 2-4-6-8-10-12.</li>
+        <li><b>Cubre ≥2 columnas:</b> reparte los números entre las columnas del volante
+        (1-19, 20-39, 40-56).</li>
+      </ul>
+
+      <h3>Las palancas que usa la app</h3>
+      <ol>
+        <li><b>Boleto anti-popular:</b> reduce el reparto si el boleto resulta ganador.</li>
+        <li><b>Timing con botes récord:</b> jugar cuando la bolsa es históricamente alta mejora el
+        valor esperado.</li>
+        <li><b>Wheels de cobertura:</b> si eliges un núcleo de números, los boletos se generan para
+        garantizar cobertura: si salen al menos 4 de tu núcleo, al menos un boleto acertará 4.</li>
+        <li><b>Diversificación:</b> al jugar varios boletos, se evita repetir el mismo riesgo con
+        variaciones del mismo patrón.</li>
+      </ol>
+
+      <h3>Lo que no funciona (y por qué)</h3>
+      <ul>
+        <li><b>Números fríos o calientes:</b> un sorteo justo no tiene memoria.</li>
+        <li><b>Paridad o suma cercana a la media:</b> no cambia la probabilidad de acertar.</li>
+        <li><b>Machine learning:</b> no puede predecir bolas con información uniforme.</li>
+      </ul>
+    </section>
+
+    <section id="botes" class="panel" role="tabpanel" hidden>
+      <h2>Resumen del histórico</h2>
+      <div id="historico" class="resultado">Cargando histórico…</div>
+
+      <h2>Calculadora de valor esperado (EV)</h2>
+      <form id="form-ev">
+        <label for="bolsa">Bote acumulado (MXN)</label>
+        <input type="number" id="bolsa" min="0" step="1" value="60000000" required>
+
+        <label for="precio">Precio por boleto (MXN)</label>
+        <input type="number" id="precio" min="1" step="1" value="15" required>
+
+        <label for="ganadores">Ganadores esperados del 1er lugar</label>
+        <input type="number" id="ganadores" min="1" step="1" value="2" required>
+
+        <label for="tickets">Boletos a comprar</label>
+        <input type="number" id="tickets" min="1" step="1" value="5" required>
+
+        <button type="submit" class="primario">Calcular EV</button>
+      </form>
+
+      <div id="resultado-ev" class="resultado" hidden></div>
+    </section>
+
+    <footer class="nota">
+      <p><b>Juego responsable.</b> Melate es una lotería con esperanza matemática negativa a largo
+      plazo. Juega solo por diversión y con dinero que puedas perder. Si sientes que pierdes el
+      control, llama a Conadic (800 911 2000, México). <b>+18 años.</b></p>
+      <p>Hecho con datos públicos del sorteo Melate · No afiliado a Lotería Nacional.</p>
+    </footer>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>
