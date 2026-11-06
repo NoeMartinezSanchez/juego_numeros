@@ -44,7 +44,8 @@ function limpiarError() {
 }
 
 async function pedir(ruta, opciones) {
-  const respuesta = await fetch(API + ruta, opciones || {});
+  const opcionesFinales = Object.assign({ credentials: "include" }, opciones || {});
+  const respuesta = await fetch(API + ruta, opcionesFinales);
   let datos = null;
   try {
     datos = await respuesta.json();
@@ -53,9 +54,58 @@ async function pedir(ruta, opciones) {
   }
   if (!respuesta.ok) {
     const mensaje = datos && datos.error ? datos.error : "No se pudo completar la solicitud.";
-    throw new Error(mensaje);
+    const error = new Error(mensaje);
+    error.status = respuesta.status;
+    throw error;
   }
   return datos;
+}
+
+function mostrarLogin() {
+  porId("auth-login").hidden = false;
+  porId("auth-sesion").hidden = true;
+}
+
+function mostrarSesion(usuario) {
+  porId("auth-email").textContent = usuario.email;
+  porId("auth-sesion").hidden = false;
+  porId("auth-login").hidden = true;
+}
+
+async function cargarSesion() {
+  try {
+    const usuario = await pedir("/api/auth/me");
+    mostrarSesion(usuario);
+    return true;
+  } catch (error) {
+    mostrarLogin();
+    if (error.status !== 401) {
+      mostrarError(error.message);
+    }
+    return false;
+  }
+}
+
+function mostrarErrorSolicitud(error) {
+  if (error.status === 401) {
+    mostrarError("Inicia sesión para continuar");
+    mostrarLogin();
+  } else {
+    mostrarError(error.message);
+  }
+}
+
+async function cerrarSesion() {
+  try {
+    await pedir("/api/auth/logout", { method: "POST" });
+    window.location.reload();
+  } catch (error) {
+    mostrarError(error.message);
+  }
+}
+
+function iniciarLogin() {
+  window.location.assign(API + "/api/auth/login");
 }
 
 function numero(valor, decimales) {
@@ -188,7 +238,7 @@ async function generarTickets(evento) {
     });
     renderTickets(datos);
   } catch (error) {
-    mostrarError(error.message);
+    mostrarErrorSolicitud(error);
   } finally {
     boton.disabled = false;
   }
@@ -250,8 +300,13 @@ async function cargarHistorico() {
       porId("bolsa").value = datos.ultimos_sorteos[datos.ultimos_sorteos.length - 1].bolsa;
     }
   } catch (error) {
-    contenedor.textContent = "No se pudo cargar el histórico.";
-    mostrarError(error.message);
+    if (error.status === 401) {
+      contenedor.textContent = "Inicia sesión para ver el histórico.";
+      mostrarLogin();
+    } else {
+      contenedor.textContent = "No se pudo cargar el histórico.";
+      mostrarError(error.message);
+    }
   }
 }
 
@@ -327,7 +382,7 @@ async function calcularEv(evento) {
     });
     renderEv(datos);
   } catch (error) {
-    mostrarError(error.message);
+    mostrarErrorSolicitud(error);
   } finally {
     boton.disabled = false;
   }
@@ -341,6 +396,22 @@ document.querySelectorAll(".tab").forEach(function (boton) {
 
 porId("form-generar").addEventListener("submit", generarTickets);
 porId("form-ev").addEventListener("submit", calcularEv);
+porId("btn-login").addEventListener("click", iniciarLogin);
+porId("btn-logout").addEventListener("click", cerrarSesion);
 
-cargarReglas();
-cargarHistorico();
+async function iniciar() {
+  await cargarReglas();
+  const autenticado = await cargarSesion();
+  if (autenticado) {
+    await cargarHistorico();
+  } else {
+    porId("historico").textContent = "Inicia sesión para ver el histórico.";
+  }
+  const parametros = new URLSearchParams(window.location.search);
+  if (parametros.get("auth") === "error") {
+    mostrarError("No se pudo iniciar sesión con Google. Intenta de nuevo.");
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+}
+
+iniciar();

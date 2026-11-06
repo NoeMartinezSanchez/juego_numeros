@@ -11,3 +11,4 @@ env/
 Thumbs.db
 .streamlit/secrets.toml
 *.log
+data/melate.db*

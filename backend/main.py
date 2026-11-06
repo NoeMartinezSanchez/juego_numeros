@@ -2,13 +2,15 @@ import random
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.sessions import SessionMiddleware
 
 import melate_logic as M
+from backend.auth import SESSION_SECRET, router as auth_router, usuario_actual
 from backend.schemas import (
     EstadisticasBolsa,
     EvRequest,
@@ -28,12 +30,21 @@ PATH_DATA = Path(__file__).resolve().parent.parent / "data" / "melate_historico.
 app = FastAPI(title="Melate Táctico API")
 
 app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    same_site="lax",
+    https_only=False,
+)
+
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://localhost:8000"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth_router, prefix="/api/auth")
 
 
 @lru_cache(maxsize=1)
@@ -103,7 +114,7 @@ def reglas_default():
 
 
 @app.post("/api/tickets", response_model=TicketsResponse)
-def crear_tickets(payload: TicketsRequest):
+def crear_tickets(payload: TicketsRequest, _usuario=Depends(usuario_actual)):
     reglas_extra = _validar_reglas(payload.rules)
     rules_efectivas = dict(M.DEFAULT_RULES, **reglas_extra)
     if payload.seed is None:
@@ -123,7 +134,7 @@ def crear_tickets(payload: TicketsRequest):
 
 
 @app.get("/api/historico", response_model=HistoricoResponse)
-def obtener_historico():
+def obtener_historico(_usuario=Depends(usuario_actual)):
     df = _historico()
     if len(df) == 0:
         return HistoricoResponse(
@@ -165,7 +176,7 @@ def obtener_historico():
 
 
 @app.post("/api/wheel", response_model=WheelResponse)
-def crear_wheel(payload: WheelRequest):
+def crear_wheel(payload: WheelRequest, _usuario=Depends(usuario_actual)):
     core = payload.core
     if len(core) < 7 or len(core) > 20:
         raise HTTPException(
@@ -189,7 +200,7 @@ def crear_wheel(payload: WheelRequest):
 
 
 @app.post("/api/ev")
-def calcular_ev(payload: EvRequest):
+def calcular_ev(payload: EvRequest, _usuario=Depends(usuario_actual)):
     return M.ev_calculator(
         payload.bolsa, payload.precio, payload.ganadores, payload.tickets
     )

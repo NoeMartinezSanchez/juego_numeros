@@ -1,9 +1,21 @@
 from fastapi.testclient import TestClient
+import pytest
 
 import melate_logic as M
+from backend.auth import usuario_actual
 from backend.main import app
 
 cliente = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def autenticar():
+    app.dependency_overrides[usuario_actual] = lambda: {
+        "id": 1,
+        "email": "test@example.com",
+    }
+    yield
+    app.dependency_overrides.pop(usuario_actual, None)
 
 
 def test_health():
