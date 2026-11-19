@@ -11,9 +11,14 @@ from backend.db import conectar
 
 logger = logging.getLogger(__name__)
 
-SUCCESS_URL = "http://localhost:5173?checkout=success"
-CANCEL_URL = "http://localhost:5173?checkout=cancel"
-PORTAL_URL = "http://localhost:5173"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+SUCCESS_URL = os.getenv(
+    "STRIPE_SUCCESS_URL", FRONTEND_URL + "?checkout=success"
+)
+CANCEL_URL = os.getenv(
+    "STRIPE_CANCEL_URL", FRONTEND_URL + "?checkout=cancel"
+)
+PORTAL_URL = os.getenv("STRIPE_PORTAL_URL", FRONTEND_URL)
 
 
 @asynccontextmanager

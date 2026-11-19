@@ -20,8 +20,11 @@ for ruta_env in (BASE_DIR / ".env", BASE_DIR / ".venv" / ".env"):
         break
 
 SESSION_SECRET = os.getenv("SESSION_SECRET") or secrets.token_hex(32)
-REDIRECT_URI = "http://localhost:8000/api/auth/callback"
-FRONTEND_URL = "http://localhost:5173"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://localhost:8000")
+REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", PUBLIC_BASE_URL + "/api/auth/callback"
+)
 
 oauth = OAuth()
 

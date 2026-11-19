@@ -1,3 +1,4 @@
+import os
 import random
 from functools import lru_cache
 from pathlib import Path
@@ -36,16 +37,28 @@ PATH_DATA = Path(__file__).resolve().parent.parent / "data" / "melate_historico.
 
 app = FastAPI(title="Melate Táctico API")
 
+SESSION_COOKIE_SECURE = os.getenv(
+    "SESSION_COOKIE_SECURE", "false"
+).lower() in ("1", "true", "yes")
+CORS_ORIGINS = [
+    origen.strip()
+    for origen in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://localhost:8000",
+    ).split(",")
+    if origen.strip()
+]
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
     same_site="lax",
-    https_only=False,
+    https_only=SESSION_COOKIE_SECURE,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:8000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

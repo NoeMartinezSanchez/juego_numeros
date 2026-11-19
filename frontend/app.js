@@ -1,4 +1,7 @@
-const API = "http://localhost:8000";
+const API =
+  window.MELATE_API_BASE !== undefined
+    ? window.MELATE_API_BASE
+    : "http://localhost:8000";
 
 const ETIQUETAS_EV = {
   C: "Combinaciones posibles (C)",
