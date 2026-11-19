@@ -31,6 +31,19 @@
       <button type="button" id="btn-login" class="primario">Iniciar sesión con Google</button>
     </div>
 
+    <div id="billing-inactivo" class="resultado" hidden>
+      <p class="costo" id="billing-inactivo-texto">Sin suscripción activa. Elige un plan para usar el generador.</p>
+      <button type="button" id="btn-checkout-mensual" class="primario">Suscribirme 100 MXN/mes</button>
+      <button type="button" id="btn-checkout-individual" class="primario">Comprar generación individual 10 MXN</button>
+    </div>
+
+    <div id="billing-activo" class="resultado" hidden>
+      <p class="costo" id="billing-fecha"></p>
+      <button type="button" id="btn-portal" class="primario">Gestionar suscripción</button>
+    </div>
+
+    <div id="billing-mensaje" class="hero" hidden></div>
+
     <nav class="tabs" role="tablist" aria-label="Secciones">
       <button type="button" class="tab activo" data-tab="generar" role="tab" aria-selected="true">🎲 Generar</button>
       <button type="button" class="tab" data-tab="documentacion" role="tab" aria-selected="false">📘 Documentación</button>
@@ -40,7 +53,7 @@
     <section id="generar" class="panel" role="tabpanel">
       <h2>Genera tus boletos</h2>
       <form id="form-generar">
-        <label for="n">¿Cuántos boletos? (1 a 50)</label>
+        <label for="n" id="n-label">¿Cuántos boletos? (1 a 50)</label>
         <input type="number" id="n" min="1" max="50" step="1" value="5" required>
 
         <fieldset>
@@ -78,7 +91,7 @@
         <label for="seed">Semilla (opcional, para repetir el mismo resultado)</label>
         <input type="number" id="seed" step="1" placeholder="Ej. 42">
 
-        <button type="submit" class="primario">Generar boletos</button>
+        <button type="submit" id="btn-generar" class="primario">Generar boletos</button>
       </form>
 
       <div id="resultado-tickets" class="resultado" hidden></div>

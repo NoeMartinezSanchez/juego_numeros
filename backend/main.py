@@ -11,6 +11,13 @@ from starlette.middleware.sessions import SessionMiddleware
 
 import melate_logic as M
 from backend.auth import SESSION_SECRET, router as auth_router, usuario_actual
+from backend.billing import (
+    acceso_generacion,
+    billing_router,
+    consumir_credito_individual,
+    suscripcion_activa,
+    webhook_router,
+)
 from backend.schemas import (
     EstadisticasBolsa,
     EvRequest,
@@ -45,6 +52,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/api/auth")
+app.include_router(billing_router, prefix="/api/billing")
+app.include_router(webhook_router)
 
 
 @lru_cache(maxsize=1)
@@ -114,7 +123,25 @@ def reglas_default():
 
 
 @app.post("/api/tickets", response_model=TicketsResponse)
-def crear_tickets(payload: TicketsRequest, _usuario=Depends(usuario_actual)):
+async def crear_tickets(
+    payload: TicketsRequest,
+    _usuario=Depends(usuario_actual),
+    _acceso=Depends(acceso_generacion),
+):
+    if _acceso["tipo"] == "individual":
+        if payload.n != 1:
+            raise HTTPException(
+                status_code=400,
+                detail="La generación individual permite solo 1 boleto",
+            )
+        consumido = await consumir_credito_individual(
+            _acceso["usuario"]["id"]
+        )
+        if not consumido:
+            raise HTTPException(
+                status_code=402,
+                detail="Se requiere suscripción activa o generación individual",
+            )
     reglas_extra = _validar_reglas(payload.rules)
     rules_efectivas = dict(M.DEFAULT_RULES, **reglas_extra)
     if payload.seed is None:
@@ -134,7 +161,10 @@ def crear_tickets(payload: TicketsRequest, _usuario=Depends(usuario_actual)):
 
 
 @app.get("/api/historico", response_model=HistoricoResponse)
-def obtener_historico(_usuario=Depends(usuario_actual)):
+def obtener_historico(
+    _usuario=Depends(usuario_actual),
+    _suscripcion=Depends(suscripcion_activa),
+):
     df = _historico()
     if len(df) == 0:
         return HistoricoResponse(
@@ -176,7 +206,11 @@ def obtener_historico(_usuario=Depends(usuario_actual)):
 
 
 @app.post("/api/wheel", response_model=WheelResponse)
-def crear_wheel(payload: WheelRequest, _usuario=Depends(usuario_actual)):
+def crear_wheel(
+    payload: WheelRequest,
+    _usuario=Depends(usuario_actual),
+    _suscripcion=Depends(suscripcion_activa),
+):
     core = payload.core
     if len(core) < 7 or len(core) > 20:
         raise HTTPException(
@@ -200,7 +234,11 @@ def crear_wheel(payload: WheelRequest, _usuario=Depends(usuario_actual)):
 
 
 @app.post("/api/ev")
-def calcular_ev(payload: EvRequest, _usuario=Depends(usuario_actual)):
+def calcular_ev(
+    payload: EvRequest,
+    _usuario=Depends(usuario_actual),
+    _suscripcion=Depends(suscripcion_activa),
+):
     return M.ev_calculator(
         payload.bolsa, payload.precio, payload.ganadores, payload.tickets
     )

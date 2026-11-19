@@ -27,6 +27,8 @@ const CAMPOS_DINERO = ["ev_fijo", "ev_1er", "ev_boleto", "ev_sesion", "bolsa", "
 const CAMPOS_ENTEROS = ["C", "ganadores", "tickets"];
 const CAMPOS_PROBABILIDAD = ["p6", "p5ad", "p5", "p4ad", "p4", "p3ad", "p3", "p2ad", "p2"];
 
+let accesoActual = "ninguno";
+
 function porId(id) {
   return document.getElementById(id);
 }
@@ -61,9 +63,57 @@ async function pedir(ruta, opciones) {
   return datos;
 }
 
+function ocultarBilling() {
+  porId("billing-inactivo").hidden = true;
+  porId("billing-activo").hidden = true;
+}
+
+function mostrarBillingInactivo(texto) {
+  porId("billing-inactivo-texto").textContent =
+    texto || "Sin suscripción activa. Elige un plan para usar el generador.";
+  porId("billing-inactivo").hidden = false;
+  porId("billing-activo").hidden = true;
+}
+
+function mostrarBillingActivo(estado) {
+  const fecha = new Date(estado.current_period_end).toLocaleDateString("es-MX");
+  porId("billing-fecha").textContent = "Suscripción activa hasta " + fecha;
+  porId("billing-activo").hidden = false;
+  porId("billing-inactivo").hidden = true;
+}
+
+function configurarGenerador(estado) {
+  const entrada = porId("n");
+  const etiqueta = porId("n-label");
+  const boton = porId("btn-generar");
+  accesoActual = estado;
+  if (estado === "suscripcion") {
+    entrada.min = "1";
+    entrada.max = "50";
+    entrada.readOnly = false;
+    etiqueta.textContent = "¿Cuántos boletos? (1 a 50)";
+    boton.disabled = false;
+  } else if (estado === "individual") {
+    entrada.min = "1";
+    entrada.max = "1";
+    entrada.readOnly = true;
+    entrada.value = "1";
+    etiqueta.textContent = "¿Cuántos boletos? (1 generación individual)";
+    boton.disabled = false;
+  } else {
+    entrada.min = "1";
+    entrada.max = "50";
+    entrada.readOnly = false;
+    etiqueta.textContent = "¿Cuántos boletos? (1 a 50)";
+    boton.disabled = true;
+  }
+}
+
 function mostrarLogin() {
   porId("auth-login").hidden = false;
   porId("auth-sesion").hidden = true;
+  ocultarBilling();
+  configurarGenerador("ninguno");
 }
 
 function mostrarSesion(usuario) {
@@ -90,6 +140,13 @@ function mostrarErrorSolicitud(error) {
   if (error.status === 401) {
     mostrarError("Inicia sesión para continuar");
     mostrarLogin();
+  } else if (error.status === 402) {
+    mostrarError(
+      error.message || "Necesitas una suscripción activa o una generación individual"
+    );
+    mostrarBillingInactivo();
+    configurarGenerador("ninguno");
+    cargarEstadoSuscripcion();
   } else {
     mostrarError(error.message);
   }
@@ -106,6 +163,76 @@ async function cerrarSesion() {
 
 function iniciarLogin() {
   window.location.assign(API + "/api/auth/login");
+}
+
+async function cargarEstadoSuscripcion() {
+  try {
+    const estado = await pedir("/api/billing/estado");
+    if (estado.suscripcion_activa) {
+      mostrarBillingActivo(estado);
+      configurarGenerador("suscripcion");
+      await cargarHistorico();
+    } else if (estado.creditos_individuales > 0) {
+      const cantidad = estado.creditos_individuales;
+      const texto =
+        cantidad === 1
+          ? "Tienes 1 generación individual disponible. Permite 1 boleto."
+          : "Tienes " + cantidad + " generaciones individuales disponibles. Cada una permite 1 boleto.";
+      mostrarBillingInactivo(texto);
+      configurarGenerador("individual");
+      porId("historico").textContent =
+        "Necesitas una suscripción activa para ver el histórico.";
+    } else {
+      mostrarBillingInactivo();
+      configurarGenerador("ninguno");
+      porId("historico").textContent =
+        "Necesitas una suscripción activa para ver el histórico.";
+    }
+    return estado;
+  } catch (error) {
+    if (error.status === 401) {
+      mostrarLogin();
+    } else {
+      ocultarBilling();
+      configurarGenerador("ninguno");
+      mostrarError(error.message);
+    }
+    return null;
+  }
+}
+
+async function iniciarCheckout(ruta, boton) {
+  boton.disabled = true;
+  try {
+    const datos = await pedir(ruta, { method: "POST" });
+    if (!datos.url) {
+      mostrarError("No se pudo iniciar el pago.");
+      boton.disabled = false;
+      return;
+    }
+    window.location.assign(datos.url);
+  } catch (error) {
+    mostrarErrorSolicitud(error);
+    boton.disabled = false;
+  }
+}
+
+function checkoutMensual() {
+  iniciarCheckout("/api/billing/checkout-mensual", porId("btn-checkout-mensual"));
+}
+
+function checkoutIndividual() {
+  iniciarCheckout("/api/billing/checkout-individual", porId("btn-checkout-individual"));
+}
+
+function abrirPortal() {
+  iniciarCheckout("/api/billing/portal", porId("btn-portal"));
+}
+
+function mostrarMensajePago() {
+  const mensaje = porId("billing-mensaje");
+  mensaje.textContent = "Pago procesado. Actualizando estado...";
+  mensaje.hidden = false;
 }
 
 function numero(valor, decimales) {
@@ -211,6 +338,12 @@ async function generarTickets(evento) {
   evento.preventDefault();
   limpiarError();
 
+  if (accesoActual === "ninguno") {
+    mostrarError("Necesitas una suscripción activa o una generación individual");
+    mostrarBillingInactivo();
+    return;
+  }
+
   const cuerpo = {
     n: Number(porId("n").value),
     rules: {
@@ -237,10 +370,16 @@ async function generarTickets(evento) {
       body: JSON.stringify(cuerpo),
     });
     renderTickets(datos);
+    if (accesoActual === "individual") {
+      await cargarEstadoSuscripcion();
+    }
   } catch (error) {
     mostrarErrorSolicitud(error);
   } finally {
     boton.disabled = false;
+    if (accesoActual === "ninguno") {
+      boton.disabled = true;
+    }
   }
 }
 
@@ -303,6 +442,10 @@ async function cargarHistorico() {
     if (error.status === 401) {
       contenedor.textContent = "Inicia sesión para ver el histórico.";
       mostrarLogin();
+    } else if (error.status === 402) {
+      contenedor.textContent =
+        "Necesitas una suscripción activa para ver el histórico.";
+      mostrarBillingInactivo();
     } else {
       contenedor.textContent = "No se pudo cargar el histórico.";
       mostrarError(error.message);
@@ -398,19 +541,36 @@ porId("form-generar").addEventListener("submit", generarTickets);
 porId("form-ev").addEventListener("submit", calcularEv);
 porId("btn-login").addEventListener("click", iniciarLogin);
 porId("btn-logout").addEventListener("click", cerrarSesion);
+porId("btn-checkout-mensual").addEventListener("click", checkoutMensual);
+porId("btn-checkout-individual").addEventListener("click", checkoutIndividual);
+porId("btn-portal").addEventListener("click", abrirPortal);
 
 async function iniciar() {
+  configurarGenerador("ninguno");
   await cargarReglas();
   const autenticado = await cargarSesion();
   if (autenticado) {
-    await cargarHistorico();
+    await cargarEstadoSuscripcion();
   } else {
     porId("historico").textContent = "Inicia sesión para ver el histórico.";
+    ocultarBilling();
   }
   const parametros = new URLSearchParams(window.location.search);
   if (parametros.get("auth") === "error") {
     mostrarError("No se pudo iniciar sesión con Google. Intenta de nuevo.");
     window.history.replaceState({}, "", window.location.pathname);
+  }
+  if (parametros.get("checkout") === "success") {
+    mostrarMensajePago();
+    window.history.replaceState({}, "", window.location.pathname);
+    if (autenticado) {
+      setTimeout(async function () {
+        await cargarEstadoSuscripcion();
+        porId("billing-mensaje").hidden = true;
+      }, 2000);
+    } else {
+      porId("billing-mensaje").hidden = true;
+    }
   }
 }
 

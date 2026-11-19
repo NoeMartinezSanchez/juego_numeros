@@ -3,6 +3,7 @@ import pytest
 
 import melate_logic as M
 from backend.auth import usuario_actual
+from backend.billing import acceso_generacion, suscripcion_activa
 from backend.main import app
 
 cliente = TestClient(app)
@@ -14,8 +15,20 @@ def autenticar():
         "id": 1,
         "email": "test@example.com",
     }
+    app.dependency_overrides[suscripcion_activa] = lambda: {
+        "user_id": 1,
+        "status": "active",
+        "current_period_end": "2100-01-01T00:00:00+00:00",
+    }
+    app.dependency_overrides[acceso_generacion] = lambda: {
+        "tipo": "suscripcion",
+        "usuario": {"id": 1, "email": "test@example.com"},
+        "creditos": None,
+    }
     yield
     app.dependency_overrides.pop(usuario_actual, None)
+    app.dependency_overrides.pop(suscripcion_activa, None)
+    app.dependency_overrides.pop(acceso_generacion, None)
 
 
 def test_health():
